@@ -1,127 +1,57 @@
-# Concept Model Experiment: Predicting Protein Disorder via Constraint Satisfaction
-
-## Overview
-
-This project demonstrates a **concept-based reasoning** approach to predicting protein disorder by evaluating physical property constraints, rather than relying on statistical learning or black-box models. The method uses curated datasets from DisProt (disordered proteins) and the Protein Data Bank (folded proteins) to test whether **simple, interpretable physical features** can differentiate folded from disordered proteins.
-
-This serves as an experimental prototype for broader validation of **concept models**—a proposed alternative to probabilistic language models for machine reasoning.
+# Concept Model Experiment – Protein Folding Predictions
 
 https://kevinmesiab.substack.com/p/emergent-concept-modeling-a-paradigm
 
----
+This repository contains a Jupyter notebook experiment that explores the prediction of protein folding states (Folded vs. Disordered) using a rule-based classification framework inspired by the Concept Model (4-Layer Matrix). The analysis investigates the biophysical and compositional constraints that distinguish folded protein domains (typically from PDB) from intrinsically disordered proteins (from DisProt), and tests how well these constraints can be used for automated prediction.
 
-## Objectives
+## Overview
 
-- Validate whether a small set of human-interpretable amino acid features can reliably distinguish folded and disordered proteins.
-- Use constraint satisfaction on normalized biochemical properties to emulate first-principles reasoning.
-- Demonstrate that **conceptual separability** emerges from feature thresholds without a trained model.
-- Compare threshold-based and logistic regression approaches to feature-based classification.
+The notebook implements and evaluates two main approaches:
 
----
+1. **Global Feature Classifier:**  
+   - Extracts 7 biophysical/compositional features from full protein sequences.
+   - Calculates empirical thresholds (midpoints) between folded and disordered training data for each feature.
+   - Classifies test proteins by counting how many features meet the “folded” condition, optimizing the count for best F1-score.
+2. **Sliding Window Classifier with Failure Cancellation:**  
+   - Extracts the same 7 features in sliding 9-amino-acid windows along each sequence.
+   - Applies a stateful rule: a protein is "Folded" if it has at most 3 uncancelled “failed” windows, where a window “fails” if fewer than 4 features meet the folded condition.
 
-## Pipeline Summary
+Both approaches are mapped to the Concept Model framework:
+- **M1:** Property vectors for amino acids or sequence segments.
+- **M2:** Empirically-derived constraints (feature thresholds).
+- **M3:** Rules for counting and aggregating satisfied conditions.
+- **M4:** Goal state (true labels: Folded or Disordered).
 
-1. **Data Collection**:
-    - 25,000 disordered proteins downloaded from DisProt API.
-    - 15,000 PDB chain sequences downloaded from RCSB's HTTPS mirror.
+## Data Sources
 
-2. **Feature Encoding**:
-    - 7 global features per sequence derived from amino acid properties:
-        - Normalized hydrophobicity
-        - Net charge
-        - Hydrogen donor/acceptor sum
-        - Relative flexibility
-        - Normalized polarity
-        - Aromaticity + helix-forming propensity
-        - Relative accessible surface area
+- **Folded proteins:** Downloaded from the Protein Data Bank (PDB), 15,000 chains in FASTA.
+- **Disordered proteins:** Downloaded from DisProt, 25,000 sequences in FASTA.
 
-3. **Classification Approaches**:
-    a) **Threshold-Based**:
-        - Midpoint thresholds computed from DisProt vs. PDB means
-        - Sequences classified as folded if they meet ≥ _k_ of 7 feature thresholds
-    
-    b) **Logistic Regression**:
-        - Standardized features used to train a logistic classifier
-        - Learned weights provide interpretable feature importance
-        - Probability threshold optimized for balanced performance
+## Feature Definitions
 
----
+For each sequence or segment, the following features are computed:
+1. Average normalized hydrophobicity
+2. Average normalized flexibility
+3. Average hydrogen bond potential
+4. Absolute net charge proportion
+5. Sequence Shannon entropy
+6. Frequency of proline
+7. Frequency of bulky hydrophobics (W, C, F, Y, I, V, L)
 
-## Results Summary
+## Results
 
-### Threshold-Based Classification
+- The best global classifier achieves ~85% accuracy and F1-score for folded proteins, using a simple count of satisfied feature constraints.
+- The sliding window approach is more stringent and provides a different trade-off between precision and recall, revealing the limits of rule-based classification for this task.
 
-| k (min # features) | TP   | FN   | TN    | FP    | Accuracy |
-|--------------------|------|------|-------|-------|----------|
-| 1                  | 14844| 156  | 3116  | 9671  | 64.63%   |
-| 2                  | 14352| 648  | 6381  | 6406  | 74.61%   |
-| 3                  | 13540| 1460 | 8143  | 4644  | 78.03%   |
-| 4                  | 12615| 2385 | 9485  | 3302  | 79.53%   |
-| 5                  | 11090| 3910 | 10689 | 2098  | 78.38%   |
-| 6                  | 8258 | 6742 | 11669 | 1118  | 71.71%   |
-| 7                  | 2679 | 12321| 12591 | 196   | 54.95%   |
+See the notebook for detailed metrics, confusion matrices, and code for reproducing the analysis.
 
-### Logistic Regression Results
+## Running the Experiment
 
-The logistic regression model achieved optimal performance with a threshold of 0.02:
+1. Install dependencies (`numpy`, `pandas`, `scikit-learn`, `requests`).
+2. Download the notebook and run all cells. The scripts will download required protein FASTA files and compute all features and results.
 
-- **Feature Weights**:
-  - Hydrophobicity: +1.164
-  - Charge: +1.857
-  - H-bond capacity: +3.499
-  - Flexibility: -1.849
-  - Polarity: -0.910
-  - Aromatic+Helix: +2.029
-  - Surface area: -0.315
+## Reference
 
-- **Performance at threshold = 0.02**:
-  - Accuracy: 81%
-  - Precision (DisProt): 100%
-  - Recall (DisProt): 81%
-  - F1-score (DisProt): 89%
+If you use this code or approach, please credit this repository and cite the relevant Concept Model literature.
 
 ---
-
-## Key Insights
-
-1. **Feature Importance**: The logistic regression weights reveal that hydrogen bonding capacity and aromatic+helix propensity are the strongest predictors of protein disorder.
-
-2. **Threshold Selection**: Both approaches show that moderate thresholds (k=4 for threshold-based, p=0.02 for logistic) provide optimal balance between accuracy and coverage.
-
-3. **Conceptual Validation**: The success of both simple threshold-based and logistic approaches supports the hypothesis that protein disorder can be predicted through interpretable physical properties.
-
----
-
-## Requirements
-
-- Python 3.8+
-- `requests`, `pandas`, `numpy`, `scikit-learn` (for metrics)
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## Running the Notebook
-
-1. Open the notebook in any Jupyter environment.
-2. Run all cells sequentially. It will:
-    - Download both FASTA datasets
-    - Compute features
-    - Train and evaluate both classification approaches
-    - Print detailed performance metrics
-
----
-
-## License
-
-This project is released under the MIT License. Use, modify, and share freely.
-
----
-
-## Contact
-
-For questions or collaboration, contact the author or open an issue on the associated repository.
